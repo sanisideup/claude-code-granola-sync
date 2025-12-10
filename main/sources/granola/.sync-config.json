@@ -1,0 +1,26 @@
+{
+  "default_days": 7,
+  "default_include_transcripts": true,
+  "cache_path": "~/Library/Application Support/Granola/cache-v3.json",
+  "output_paths": {
+    "meetings": "main/sources/granola/meetings",
+    "transcripts": "main/sources/granola/transcripts"
+  },
+  "filters": {
+    "folders": [],
+    "exclude_folders": []
+  },
+  "sync_preferences": {
+    "include_ai_summary": true,
+    "include_notes": true,
+    "include_participants": true,
+    "include_tags": true,
+    "max_filename_length": 50
+  },
+  "notes": [
+    "This config file controls default behavior for /sync-granola command",
+    "Modify 'default_days' to change default sync window",
+    "Add folder names to 'filters.folders' to auto-filter by project",
+    "Set 'default_include_transcripts' to false to skip transcripts by default"
+  ]
+}
