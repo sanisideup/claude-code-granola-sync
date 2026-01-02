@@ -14,6 +14,21 @@
 /sync-granola folder:Innovation
 ```
 
+## Automatic Sync
+
+**Your meetings sync automatically!** This repository includes a session start hook that automatically syncs Granola meetings every time you start Claude Code.
+
+- **Triggers on**: Every new Claude Code session startup
+- **Smart sync**: Automatically syncs all days since your last sync
+- **Zero friction**: Runs silently in the background - your meetings are always up to date
+
+The sync is smart about incremental updates:
+- First time: Syncs all meetings in your Granola cache
+- Subsequent sessions: Only syncs meetings since last session
+- Example: If you last synced 3 days ago, it automatically syncs the last 3 days
+
+The hook configuration is in `.claude/config.json` and the auto-sync script is at `scripts/auto-sync-granola.sh`.
+
 ## Architecture
 
 This repository uses a **local sync architecture**:

@@ -14,6 +14,24 @@ Use the `/sync-granola` slash command in Claude Code to sync your meetings:
 /sync-granola 14 --no-transcripts  # Sync last 14 days, skip transcripts
 ```
 
+## Automatic Sync
+
+**Good news!** Your Granola meetings sync automatically on every Claude Code session start.
+
+When you launch Claude Code, a session start hook automatically:
+1. Reads the `.last-sync` timestamp
+2. Calculates how many days have passed since your last sync
+3. Runs `sync-granola.py` with the appropriate `--days` parameter
+4. Updates the `.last-sync` timestamp for the next session
+
+**Examples:**
+- First time: Syncs all meetings in your cache
+- Last synced yesterday: Syncs last 2 days
+- Last synced 2 weeks ago: Syncs last 15 days
+- Invalid timestamp: Defaults to 7 days
+
+This happens silently in the background - your meetings are always up to date without manual intervention.
+
 ## Direct Script Usage
 
 You can also run the sync script directly:

@@ -1,0 +1,15 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "triggers": ["startup"],
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash scripts/auto-sync-granola.sh"
+          }
+        ]
+      }
+    ]
+  }
+}
