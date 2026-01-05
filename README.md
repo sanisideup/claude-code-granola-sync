@@ -27,7 +27,7 @@ The sync is smart about incremental updates:
 - Subsequent sessions: Only syncs meetings since last session
 - Example: If you last synced 3 days ago, it automatically syncs the last 3 days
 
-The hook configuration is in `.claude/config.json` and the auto-sync script is at `scripts/auto-sync-granola.sh`.
+The hook configuration is in `.claude/settings.json` and the auto-sync script is at `scripts/auto-sync-granola.sh`.
 
 ## Architecture
 
