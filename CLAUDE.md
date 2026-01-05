@@ -39,7 +39,8 @@ Each data source follows a consistent pattern:
    - Contains synced markdown files with YAML frontmatter
    - Includes `README.md` with source-specific documentation
    - Includes `.sync-config.json` with sync preferences
-   - Includes `.last-sync` timestamp file
+   - Includes `.last-sync` timestamp file (updated by sync script)
+   - Includes `.last-auto-sync` notification file (updated by auto-sync hook)
 
 2. **Sync Script**: `scripts/sync-[source-name].py`
    - Python 3.7+ script with argparse CLI
@@ -47,7 +48,13 @@ Each data source follows a consistent pattern:
    - Outputs structured markdown files
    - Preserves full metadata in YAML frontmatter
 
-3. **Slash Command**: `.claude/commands/sync-[source-name].md`
+3. **Auto-Sync Script**: `scripts/auto-sync-[source-name].sh`
+   - Bash script triggered by SessionStart hook
+   - Automatically syncs new data since last sync
+   - Writes detailed summary to `.last-auto-sync` notification file
+   - Summary includes: meeting count, date range, meeting titles, transcript status
+
+4. **Slash Command**: `.claude/commands/sync-[source-name].md`
    - User-friendly interface to sync script
    - Handles argument parsing
    - Provides feedback on sync status
@@ -57,7 +64,7 @@ Each data source follows a consistent pattern:
 ### Sync Operations
 
 ```bash
-# Sync Granola meeting notes (last 7 days by default)
+# Manual sync - Sync Granola meeting notes (last 7 days by default)
 /sync-granola
 
 # Sync specific time ranges
@@ -72,7 +79,20 @@ Each data source follows a consistent pattern:
 
 # Direct script invocation
 python3 scripts/sync-granola.py --days 7 --folder Innovation
+
+# Check last auto-sync summary
+cat main/sources/granola/.last-auto-sync
 ```
+
+### Automatic Sync
+
+A SessionStart hook automatically syncs Granola meetings when you start a new Claude Code session. The hook:
+- Calculates days since last sync
+- Syncs only new meetings since last sync
+- Writes a detailed summary to `main/sources/granola/.last-auto-sync`
+- Summary includes: meeting count, date range, meeting titles, and transcript status
+
+Configuration: `.claude/settings.json` → `hooks.SessionStart`
 
 ## Key Technical Details
 

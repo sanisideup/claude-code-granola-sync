@@ -43,12 +43,12 @@ calculate_days_since_sync() {
 # Main sync logic
 main() {
     local days_to_sync
+    local sync_output
     local sync_message
 
     if [ ! -f "$LAST_SYNC_FILE" ]; then
         # No previous sync, sync all
         days_to_sync=0
-        sync_message="First sync - fetching all Granola meetings"
     else
         # Read last sync timestamp
         local last_sync_timestamp=$(cat "$LAST_SYNC_FILE" | tr -d '\n')
@@ -59,23 +59,89 @@ main() {
         if [ "$days_to_sync" -eq 0 ] || [ "$days_to_sync" -lt 0 ]; then
             # Invalid calculation, default to 7 days
             days_to_sync=7
-            sync_message="Auto-syncing last 7 days of Granola meetings (default)"
-        else
-            sync_message="Auto-syncing last ${days_to_sync} days of Granola meetings (since last sync)"
         fi
     fi
 
-    # Run the sync (capture output but don't show it in hook response)
+    # Run the sync and capture output
     if [ "$days_to_sync" -eq 0 ]; then
-        python3 "$SCRIPT_DIR/sync-granola.py" --days 0 > /dev/null 2>&1
-        sync_message="Auto-sync complete: All Granola meetings synced"
+        sync_output=$(python3 "$SCRIPT_DIR/sync-granola.py" --days 0 2>&1)
     else
-        python3 "$SCRIPT_DIR/sync-granola.py" --days "$days_to_sync" > /dev/null 2>&1
-        sync_message="Auto-sync complete: Synced ${days_to_sync} days of Granola meetings"
+        sync_output=$(python3 "$SCRIPT_DIR/sync-granola.py" --days "$days_to_sync" 2>&1)
     fi
 
-    # Return JSON with context for Claude
-    echo "{\"hookSpecificOutput\": {\"hookEventName\": \"SessionStart\", \"additionalContext\": \"$sync_message\"}}"
+    # Extract synced meeting titles from output
+    local meeting_titles=$(echo "$sync_output" | grep "✓ Synced:" | sed 's/✓ Synced: //' | head -10)
+    local meeting_count=$(echo "$sync_output" | grep "✓ Synced:" | wc -l | tr -d ' ')
+
+    # Check if transcripts were synced (sync-granola.py syncs transcripts by default)
+    local has_transcripts="with transcripts"
+
+    # Build summary message
+    if [ "$meeting_count" -eq 0 ]; then
+        sync_message="Granola auto-sync: No new meetings to sync"
+    else
+        # Calculate date range
+        local today=$(date "+%Y-%m-%d")
+        local start_date
+        if [ "$days_to_sync" -eq 0 ]; then
+            start_date="all time"
+        else
+            # Calculate start date (days_to_sync days ago)
+            if [[ "$OSTYPE" == "darwin"* ]]; then
+                # macOS date command
+                start_date=$(date -v-${days_to_sync}d "+%Y-%m-%d")
+            else
+                # Linux date command
+                start_date=$(date -d "${days_to_sync} days ago" "+%Y-%m-%d")
+            fi
+        fi
+
+        # Build meeting list (show up to 5)
+        local meeting_list=""
+        local count=0
+        while IFS= read -r title; do
+            if [ -n "$title" ]; then
+                meeting_list="${meeting_list}\n  • ${title}"
+                count=$((count + 1))
+                if [ $count -ge 5 ]; then
+                    break
+                fi
+            fi
+        done <<< "$meeting_titles"
+
+        # Add "and X more" if there are more meetings
+        local remaining=$((meeting_count - count))
+        if [ $remaining -gt 0 ]; then
+            meeting_list="${meeting_list}\n  • ...and ${remaining} more"
+        fi
+
+        # Format the final message
+        if [ "$days_to_sync" -eq 0 ]; then
+            sync_message="Granola auto-sync complete: ${meeting_count} meeting(s) synced (all time) ${has_transcripts}${meeting_list}"
+        else
+            sync_message="Granola auto-sync complete: ${meeting_count} meeting(s) synced\nDate range: ${start_date} to ${today}\n${has_transcripts}${meeting_list}"
+        fi
+    fi
+
+    # Write to a notification file for user reference
+    local notification_file="$PROJECT_DIR/main/sources/granola/.last-auto-sync"
+    echo -e "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━" > "$notification_file"
+    echo -e "$sync_message" >> "$notification_file"
+    echo -e "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━" >> "$notification_file"
+
+    # Try to write directly to the terminal (bypassing stdout/stderr capture)
+    if [ -w /dev/tty ]; then
+        echo "" > /dev/tty
+        echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━" > /dev/tty
+        echo -e "$sync_message" > /dev/tty
+        echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━" > /dev/tty
+        echo "" > /dev/tty
+    fi
+
+    # Return JSON with the actual sync message for Claude to display
+    # Escape the message for JSON (replace quotes and newlines)
+    local json_message=$(echo -e "$sync_message" | sed 's/"/\\"/g' | awk '{printf "%s\\n", $0}' | sed 's/\\n$//')
+    echo "{\"hookSpecificOutput\": {\"hookEventName\": \"SessionStart\", \"additionalContext\": \"$json_message\"}}"
 
     exit 0
 }

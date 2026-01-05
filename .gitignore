@@ -56,8 +56,11 @@ cached_channel_ids.txt
 
 # Granola sync metadata (track the notes, not the sync state)
 main/sources/granola/.last-sync
+main/sources/granola/.last-auto-sync
 
 # Useful if you want to keep meeting notes private
 main/sources/granola/meetings/
 main/sources/granola/transcripts/
 
+# private notes
+main/notes/
