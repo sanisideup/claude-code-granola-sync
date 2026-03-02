@@ -1,4 +1,4 @@
-# Sync Granola meeting notes and transcripts into the project folder with full metadata preservation.
+# Sync Granola meetings from local cache into the project folder with metadata preservation.
 
 # Arguments
 
@@ -9,7 +9,7 @@ The command accepts optional arguments from the user: `$ARGUMENTS`
 - Number like `30` or `30d`: sync last N days
 - `--all` or `all`: sync all meetings
 - `folder:FolderName`: sync only meetings from specific folder (e.g., `folder:Innovation`)
-- `--no-transcripts`: skip syncing transcripts (notes only)
+- `--no-transcripts`: optional legacy flag (transcripts may not exist in cache v4)
 
 # Instructions
 
@@ -53,19 +53,16 @@ After syncing, show the user:
 1. ✅ Success message with count of synced meetings
 2. 📁 File locations:
    - Meeting notes: `main/sources/granola/meetings/`
-   - Transcripts: `main/sources/granola/transcripts/`
+   - Transcripts: `main/sources/granola/transcripts/` (legacy/pre-migration only)
 3. 📊 Brief summary of what was synced (date range, folders if filtered)
-4. ⚠️ Any errors or warnings
+4. ⚠️ Any warnings (especially metadata-only cache detection)
 
 # Notes
 
 - The script reads from Granola's local cache: `~/Library/Application Support/Granola/cache-v3.json`
-- Each meeting is saved as markdown with YAML frontmatter containing:
-  - Meeting ID, title, dates
-  - Participants list
-  - Folder/project association
-  - Duration
-  - Tags
-  - Link back to Granola
-- Transcripts are saved separately for easier navigation
+- For post-Feb 2026 meetings, local cache may contain metadata only
+- AI summaries + historical transcripts are server-side in Granola cache v4
+- Use Granola MCP for full content retrieval:
+  - https://docs.granola.ai/help-center/sharing/integrations/mcp
+- Each meeting is saved as markdown with YAML frontmatter containing metadata (ID, title, dates, participants, folder, tags, link)
 - Last sync timestamp is tracked in `.last-sync` file
