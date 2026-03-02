@@ -13,6 +13,9 @@ from pathlib import Path
 from typing import Dict, List, Optional
 
 
+CACHE_V4_MIGRATION_DATE = datetime(2026, 2, 1)
+
+
 class GranolaSync:
     """Handles syncing Granola notes to local markdown files with metadata."""
 
@@ -94,6 +97,15 @@ class GranolaSync:
 
         return '\n\n'.join(text_parts)
 
+    def _parse_created_at(self, created_at: str) -> Optional[datetime]:
+        """Parse ISO created_at timestamps safely."""
+        if not created_at:
+            return None
+        try:
+            return datetime.fromisoformat(created_at.replace('Z', '+00:00')).replace(tzinfo=None)
+        except ValueError:
+            return None
+
     def parse_meeting(self, meeting_data: Dict, transcript_data: Optional[List] = None,
                      folder_mapping: Optional[Dict] = None,
                      panels_dict: Optional[Dict] = None) -> Dict:
@@ -131,6 +143,7 @@ class GranolaSync:
 
         # Combine all AI summaries
         overview = '\n\n---\n\n'.join(ai_summaries) if ai_summaries else ''
+        has_ai_summary = bool(overview.strip())
 
         # Extract people/participants
         people = meeting_data.get('people', [])
@@ -148,6 +161,11 @@ class GranolaSync:
         if transcript_data:
             transcript_text = self._format_transcript(transcript_data)
             duration = self._calculate_duration(transcript_data)
+
+        has_transcript = bool(transcript_text.strip())
+        created_dt = self._parse_created_at(created_at)
+        is_post_migration = bool(created_dt and created_dt >= CACHE_V4_MIGRATION_DATE)
+        metadata_only = is_post_migration and not has_ai_summary and not has_transcript
 
         # Extract folder from mapping
         folder = "Uncategorized"
@@ -173,6 +191,10 @@ class GranolaSync:
             'transcript': transcript_text,
             'notes': notes_text,
             'ai_summary': overview,
+            'has_ai_summary': has_ai_summary,
+            'has_transcript': has_transcript,
+            'content_mode': 'metadata_only' if metadata_only else 'full',
+            'requires_mcp_for_full_content': metadata_only,
             'granola_url': f"granola://meeting/{meeting_id}"
         }
 
@@ -256,6 +278,10 @@ class GranolaSync:
             f"updated_at: {meeting['updated_at']}",
             f"folder: {meeting['folder']}",
             f"duration: {meeting['duration']}",
+            f"content_mode: {meeting['content_mode']}",
+            f"has_ai_summary: {str(meeting['has_ai_summary']).lower()}",
+            f"has_transcript: {str(meeting['has_transcript']).lower()}",
+            f"requires_mcp_for_full_content: {str(meeting['requires_mcp_for_full_content']).lower()}",
             f"granola_url: {meeting['granola_url']}"
         ]
 
@@ -372,6 +398,9 @@ class GranolaSync:
 
         # Process each meeting
         synced_count = 0
+        metadata_only_count = 0
+        ai_summary_count = 0
+        transcript_count = 0
         for meeting_data in meetings_data:
             try:
                 # Get transcript for this meeting if available
@@ -390,6 +419,13 @@ class GranolaSync:
                 safe_title = "".join(c if c.isalnum() or c in (' ', '-', '_') else ''
                                     for c in meeting['title'])
                 safe_title = safe_title.strip()[:50]  # Limit length
+
+                if meeting['content_mode'] == 'metadata_only':
+                    metadata_only_count += 1
+                if meeting['has_ai_summary']:
+                    ai_summary_count += 1
+                if meeting['has_transcript']:
+                    transcript_count += 1
 
                 # Save meeting notes
                 meeting_filename = f"{date_str}_{safe_title}_{meeting['id'][:8]}.md"
@@ -423,6 +459,15 @@ class GranolaSync:
         print(f"\n✅ Sync complete! Synced {synced_count} meetings")
         print(f"   Notes: {self.meetings_dir}")
         print(f"   Transcripts: {self.transcripts_dir}")
+
+        if synced_count > 0:
+            print(f"   AI summaries found: {ai_summary_count}/{synced_count}")
+            print(f"   Transcripts found: {transcript_count}/{synced_count}")
+
+        if metadata_only_count > 0:
+            print("\n⚠️  Granola cache appears metadata-only for some recent meetings (cache v4).")
+            print("   Use Granola MCP for full summaries/transcripts:")
+            print("   https://docs.granola.ai/help-center/sharing/integrations/mcp")
 
 
 def main():
